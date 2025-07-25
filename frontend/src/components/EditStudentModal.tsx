@@ -45,7 +45,7 @@ interface FormData {
   apellido: string;
   celular: string;
   ciudad: string;
-  curso: string;
+  cursos: string[];
   estadoPago: 'pendiente' | 'parcial' | 'completo';
   cantidadPago: string; // Keep as string for input handling
 }
@@ -55,7 +55,7 @@ interface FormErrors {
   apellido?: string;
   celular?: string;
   ciudad?: string;
-  curso?: string;
+  cursos?: string;
   estadoPago?: string;
   cantidadPago?: string;
 }
@@ -82,7 +82,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({
     apellido: '',
     celular: '',
     ciudad: '',
-    curso: '',
+    cursos: [],
     estadoPago: 'pendiente',
     cantidadPago: '0',
   });
@@ -101,7 +101,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({
         apellido: student.apellido || '',
         celular: student.celular || '',
         ciudad: student.ciudad || '',
-        curso: student.curso || '',
+        cursos: student.cursos || [],
         estadoPago: student.estadoPago || 'pendiente',
         cantidadPago: (student.cantidadPago || 0).toString(),
       });
@@ -137,10 +137,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({
       newErrors.ciudad = ciudadValidation.message;
     }
 
-    // Validate curso using utility
-    const cursoValidation = ValidationUtils.validateCourse(formData.curso);
-    if (!cursoValidation.isValid) {
-      newErrors.curso = cursoValidation.message;
+    // Validate cursos
+    if (!formData.cursos || formData.cursos.length === 0) {
+      newErrors.cursos = 'Debe seleccionar al menos un curso';
+    } else {
+      const validCourses = ['Sanación de las familias', 'Angelología'];
+      const invalidCourses = formData.cursos.filter(curso => !validCourses.includes(curso));
+      if (invalidCourses.length > 0) {
+        newErrors.cursos = `Cursos inválidos: ${invalidCourses.join(', ')}`;
+      }
     }
 
     // Validate estadoPago using utility
@@ -210,13 +215,25 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({
     }
   };
 
-  const handleSelectChange = (field: 'curso' | 'estadoPago') => (event: any) => {
+  const handleSelectChange = (field: 'estadoPago') => (event: any) => {
     const value = event.target.value;
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error for this field
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleCourseChange = (event: any) => {
+    const value = event.target.value;
+    // Handle multiple selection
+    const selectedCourses = typeof value === 'string' ? value.split(',') : value;
+    setFormData(prev => ({ ...prev, cursos: selectedCourses }));
+
+    // Clear error for cursos field
+    if (errors.cursos) {
+      setErrors(prev => ({ ...prev, cursos: undefined }));
     }
   };
 
@@ -236,7 +253,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({
         apellido: formData.apellido.trim(),
         celular: formData.celular.trim(),
         ciudad: formData.ciudad.trim(),
-        curso: formData.curso,
+        cursos: formData.cursos,
         estadoPago: formData.estadoPago,
         cantidadPago: parseFloat(formData.cantidadPago),
       };
@@ -285,15 +302,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({
     }
   };
 
-  const formatCurrency = (value: string) => {
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) return '';
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-    }).format(numValue);
-  };
+
 
   if (!student) {
     return null;
@@ -406,23 +415,75 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({
               }}
             />
 
-            {/* Curso */}
-            <FormControl fullWidth required error={!!errors.curso} disabled={loading}>
-              <InputLabel>Curso</InputLabel>
+            {/* Cursos */}
+            <FormControl fullWidth required error={!!errors.cursos} disabled={loading}>
+              <InputLabel>Cursos</InputLabel>
               <Select
-                value={formData.curso}
-                onChange={handleSelectChange('curso')}
-                label="Curso"
+                multiple
+                value={formData.cursos}
+                onChange={handleCourseChange}
+                label="Cursos"
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => (
+                      <Box
+                        key={value}
+                        sx={{
+                          backgroundColor: '#e3f2fd',
+                          borderRadius: '16px',
+                          px: 1,
+                          py: 0.25,
+                          fontSize: '0.875rem',
+                          color: '#1976d2',
+                          border: '1px solid #bbdefb'
+                        }}
+                      >
+                        {value}
+                      </Box>
+                    ))}
+                  </Box>
+                )}
               >
                 {COURSES.map((course) => (
                   <MenuItem key={course} value={course}>
-                    {course}
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <Box
+                        sx={{
+                          width: 16,
+                          height: 16,
+                          border: '2px solid #1976d2',
+                          borderRadius: '3px',
+                          mr: 1,
+                          backgroundColor: formData.cursos.includes(course) ? '#1976d2' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {formData.cursos.includes(course) && (
+                          <Box
+                            sx={{
+                              width: 8,
+                              height: 8,
+                              backgroundColor: 'white',
+                              borderRadius: '1px'
+                            }}
+                          />
+                        )}
+                      </Box>
+                      {course}
+                    </Box>
                   </MenuItem>
                 ))}
               </Select>
-              {errors.curso && (
+              {errors.cursos && (
                 <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
-                  {errors.curso}
+                  {errors.cursos}
+                </Typography>
+              )}
+              {!errors.cursos && (
+                <Typography variant="caption" sx={{ mt: 0.5, ml: 1.5, color: '#666666' }}>
+                  Puedes seleccionar múltiples cursos
                 </Typography>
               )}
             </FormControl>

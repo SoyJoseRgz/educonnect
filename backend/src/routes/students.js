@@ -6,6 +6,7 @@ const router = express.Router();
 
 // Public endpoints
 router.get('/public', StudentController.getPublicStudents);
+router.get('/check-phone/:celular', StudentController.checkPhoneExists);
 router.post('/', ValidationMiddleware.validateStudentRegistration, StudentController.registerStudent);
 
 // Admin endpoints (protected by auth middleware)

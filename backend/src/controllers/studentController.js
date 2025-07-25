@@ -24,7 +24,10 @@ class StudentController {
   // POST /api/students - Register new student
   static async registerStudent(req, res) {
     try {
-      const { nombre, apellido, celular, ciudad, curso } = req.body;
+      const { nombre, apellido, celular, ciudad, cursos } = req.body;
+
+      // Ensure cursos is an array
+      const cursosArray = Array.isArray(cursos) ? cursos : [cursos].filter(Boolean);
 
       // Create new student instance
       const student = new Student({
@@ -32,7 +35,7 @@ class StudentController {
         apellido,
         celular,
         ciudad,
-        curso,
+        cursos: cursosArray,
         estadoPago: 'pendiente',
         cantidadPago: 0
       });
@@ -42,7 +45,7 @@ class StudentController {
 
       res.status(201).json({
         success: true,
-        message: 'Estudiante registrado exitosamente',
+        message: `Estudiante registrado exitosamente en ${cursosArray.length > 1 ? 'los cursos' : 'el curso'}: ${cursosArray.join(', ')}`,
         data: savedStudent.toJSON()
       });
     } catch (error) {
@@ -54,6 +57,15 @@ class StudentController {
           success: false,
           message: 'Error de validación',
           error: error.message.replace('Validation failed: ', '')
+        });
+      }
+
+      // Handle duplicate phone number error
+      if (error.message.includes('Ya existe un estudiante registrado con el número celular')) {
+        return res.status(409).json({
+          success: false,
+          message: 'Número de celular duplicado',
+          error: error.message
         });
       }
 
@@ -89,7 +101,7 @@ class StudentController {
   static async updateStudent(req, res) {
     try {
       const { id } = req.params;
-      const { nombre, apellido, celular, ciudad, curso, estadoPago, cantidadPago } = req.body;
+      const { nombre, apellido, celular, ciudad, cursos, estadoPago, cantidadPago } = req.body;
 
       // Find existing student
       const existingStudent = await Student.findById(id);
@@ -100,13 +112,16 @@ class StudentController {
         });
       }
 
+      // Ensure cursos is an array if provided
+      const cursosArray = cursos ? (Array.isArray(cursos) ? cursos : [cursos].filter(Boolean)) : existingStudent.cursos;
+
       // Update student data
       Object.assign(existingStudent, {
         nombre: nombre || existingStudent.nombre,
         apellido: apellido || existingStudent.apellido,
         celular: celular || existingStudent.celular,
         ciudad: ciudad || existingStudent.ciudad,
-        curso: curso || existingStudent.curso,
+        cursos: cursosArray,
         estadoPago: estadoPago || existingStudent.estadoPago,
         cantidadPago: cantidadPago !== undefined ? cantidadPago : existingStudent.cantidadPago
       });
@@ -128,6 +143,15 @@ class StudentController {
           success: false,
           message: 'Error de validación',
           error: error.message.replace('Validation failed: ', '')
+        });
+      }
+
+      // Handle duplicate phone number error
+      if (error.message.includes('Ya existe otro estudiante registrado con el número celular')) {
+        return res.status(409).json({
+          success: false,
+          message: 'Número de celular duplicado',
+          error: error.message
         });
       }
 
@@ -166,6 +190,43 @@ class StudentController {
       res.status(500).json({
         success: false,
         message: 'Error al eliminar estudiante',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/students/check-phone/:celular - Check if phone number exists
+  static async checkPhoneExists(req, res) {
+    try {
+      const { celular } = req.params;
+
+      // Validate phone number format
+      const phoneValidation = Student.validatePhoneNumber(celular);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: phoneValidation.message
+        });
+      }
+
+      // Check if student exists with this phone number
+      const existingStudent = await Student.findByCelular(phoneValidation.cleanPhone);
+
+      res.json({
+        success: true,
+        exists: !!existingStudent,
+        data: existingStudent ? {
+          id: existingStudent.id,
+          nombre: existingStudent.nombre,
+          apellido: existingStudent.apellido,
+          cursos: existingStudent.cursos
+        } : null
+      });
+    } catch (error) {
+      console.error('Error checking phone existence:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al verificar número de teléfono',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }

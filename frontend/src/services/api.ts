@@ -7,7 +7,7 @@ export interface Student {
   apellido: string;
   celular: string;
   ciudad: string;
-  curso: string;
+  cursos: string[];
   estadoPago?: 'pendiente' | 'parcial' | 'completo';
   cantidadPago?: number;
   fechaRegistro?: string;
@@ -20,7 +20,7 @@ export interface PublicStudent {
   apellido: string;
   ciudad: string;
   celular: string;
-  curso: string;
+  cursos: string[];
 }
 
 export interface LoginCredentials {
@@ -237,6 +237,14 @@ class ApiService {
     return response.data!;
   }
 
+  async checkPhoneExists(celular: string): Promise<{ exists: boolean; data?: { id: number; nombre: string; apellido: string; cursos: string[] } }> {
+    const response = await this.request<ApiResponse<{ exists: boolean; data?: { id: number; nombre: string; apellido: string; cursos: string[] } }>>(`/students/check-phone/${celular}`);
+    return {
+      exists: response.data?.exists || false,
+      data: response.data?.data
+    };
+  }
+
   // Authentication API methods
   async login(credentials: LoginCredentials): Promise<void> {
     await this.request<ApiResponse>('/auth/login', {
@@ -320,6 +328,7 @@ export const studentApi = {
   updateStudent: (id: number, student: Partial<Student>) =>
     apiService.updateStudent(id, student),
   deleteStudent: (id: number) => apiService.deleteStudent(id),
+  checkPhoneExists: (celular: string) => apiService.checkPhoneExists(celular),
 };
 
 export const authApi = {

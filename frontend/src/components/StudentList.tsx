@@ -131,14 +131,14 @@ const StudentList: React.FC<StudentListProps> = ({ refreshTrigger = 0, onRegistr
       const nombre = student?.nombre || '';
       const apellido = student?.apellido || '';
       const celular = student?.celular || '';
-      const curso = student?.curso || '';
+      const cursos = student?.cursos || [];
 
       return (
         nombre.toLowerCase().includes(term) ||
         apellido.toLowerCase().includes(term) ||
         `${nombre} ${apellido}`.toLowerCase().includes(term) ||
         celular.includes(term) ||
-        curso.toLowerCase().includes(term)
+        cursos.some(curso => curso.toLowerCase().includes(term))
       );
     });
 
@@ -281,7 +281,7 @@ const StudentList: React.FC<StudentListProps> = ({ refreshTrigger = 0, onRegistr
             },
           }}
         >
-          Registrarte como Estudiante
+          Registrarte al taller
         </Button>
 
         {/* Empty State */}
@@ -363,10 +363,10 @@ const StudentList: React.FC<StudentListProps> = ({ refreshTrigger = 0, onRegistr
         >
           <VideoCallIcon sx={{ color: 'white', mb: 0.5, fontSize: '1.2rem' }} />
           <Typography variant="body2" sx={{ mb: 0.5, color: 'white', fontSize: '0.75rem', fontWeight: 500 }}>
-            Acceso al Taller
+            Entrar a la sesión
           </Typography>
           <Typography variant="body1" sx={{ fontWeight: 600, color: 'white', fontSize: '0.9rem' }}>
-            Entrar al Taller
+            ¡Da clic aquí!
           </Typography>
         </Paper>
       </Box>
@@ -406,7 +406,7 @@ const StudentList: React.FC<StudentListProps> = ({ refreshTrigger = 0, onRegistr
           },
         }}
       >
-        Registrarte como Estudiante
+        Registrarte al taller
       </Button>
 
       {/* Students List Title */}
@@ -502,7 +502,25 @@ const StudentList: React.FC<StudentListProps> = ({ refreshTrigger = 0, onRegistr
                   fontSize: { xs: '0.8rem', md: '0.85rem' }, // Texto más pequeño en móvil
                   fontWeight: 400
                 }}>
-                  {student.curso}
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {student.cursos.map((curso, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          backgroundColor: '#e3f2fd',
+                          color: '#1976d2',
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: '12px',
+                          fontSize: { xs: '0.7rem', md: '0.75rem' },
+                          fontWeight: 500,
+                          border: '1px solid #bbdefb'
+                        }}
+                      >
+                        {curso}
+                      </Box>
+                    ))}
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}

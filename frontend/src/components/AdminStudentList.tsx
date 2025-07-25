@@ -44,8 +44,6 @@ interface AdminStudentListProps {
   refreshTrigger?: number;
 }
 
-
-
 const AdminStudentList: React.FC<AdminStudentListProps> = ({
   onEditStudent,
   onDeleteStudent,
@@ -213,8 +211,6 @@ const AdminStudentList: React.FC<AdminStudentListProps> = ({
     setCurrentPage(1);
   }, []);
 
-
-
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
       case 'completo':
@@ -226,10 +222,6 @@ const AdminStudentList: React.FC<AdminStudentListProps> = ({
         return 'error';
     }
   };
-
-
-
-
 
   // Pagination component with elegant styling
   const PaginationControls = () => (
@@ -580,9 +572,22 @@ const AdminStudentList: React.FC<AdminStudentListProps> = ({
                     >
                       <SchoolIcon sx={{ fontSize: '1rem', color: '#4285f4' }} />
                     </Box>
-                    <Typography variant="body2" sx={{ color: '#1a1a1a', fontWeight: 500 }}>
-                      {student.curso}
-                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {student.cursos.map((curso, index) => (
+                        <Chip
+                          key={index}
+                          label={curso}
+                          size="small"
+                          sx={{
+                            backgroundColor: '#e3f2fd',
+                            color: '#1976d2',
+                            fontSize: '0.75rem',
+                            height: '24px',
+                            borderRadius: '12px'
+                          }}
+                        />
+                      ))}
+                    </Box>
                   </Box>
 
                   <Divider sx={{ my: 1, borderColor: '#e5e5e5' }} />
@@ -836,7 +841,22 @@ const AdminStudentList: React.FC<AdminStudentListProps> = ({
                   fontSize: '0.875rem',
                   py: 2
                 }}>
-                  {student.curso}
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {student.cursos.map((curso, index) => (
+                      <Chip
+                        key={index}
+                        label={curso}
+                        size="small"
+                        sx={{
+                          backgroundColor: '#e3f2fd',
+                          color: '#1976d2',
+                          fontSize: '0.75rem',
+                          height: '24px',
+                          borderRadius: '12px'
+                        }}
+                      />
+                    ))}
+                  </Box>
                 </TableCell>
                 <TableCell sx={{ py: 2 }}>
                   <Chip

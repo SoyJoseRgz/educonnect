@@ -46,7 +46,7 @@ class ValidationMiddleware {
   }
   // Middleware for validating student registration
   static validateStudentRegistration(req, res, next) {
-    const { nombre, apellido, celular, ciudad, curso } = req.body;
+    const { nombre, apellido, celular, ciudad, cursos } = req.body;
     const errors = [];
 
     // Check required fields
@@ -117,13 +117,20 @@ class ValidationMiddleware {
       }
     }
 
-    if (!curso || curso.trim() === '') {
-      errors.push('El curso es requerido');
+    // Validate cursos (multiple courses)
+    if (!cursos || !Array.isArray(cursos) || cursos.length === 0) {
+      errors.push('Debe seleccionar al menos un curso');
     } else {
-      // Validate course selection
       const validCourses = ['Sanación de las familias', 'Angelología'];
-      if (!validCourses.includes(curso.trim())) {
-        errors.push('El curso debe ser "Sanación de las familias" o "Angelología"');
+      const invalidCourses = cursos.filter(curso => !validCourses.includes(curso.trim()));
+      if (invalidCourses.length > 0) {
+        errors.push(`Cursos inválidos: ${invalidCourses.join(', ')}`);
+      }
+      
+      // Check for duplicates
+      const uniqueCourses = [...new Set(cursos.map(curso => curso.trim()))];
+      if (uniqueCourses.length !== cursos.length) {
+        errors.push('No se pueden seleccionar cursos duplicados');
       }
     }
 
@@ -158,14 +165,14 @@ class ValidationMiddleware {
     req.body.apellido = apellido.trim().replace(/\s+/g, ' ');
     req.body.celular = celular.replace(/\D/g, ''); // Remove non-digits
     req.body.ciudad = ciudad.trim().replace(/\s+/g, ' ');
-    req.body.curso = curso.trim();
+    req.body.cursos = cursos.map(curso => curso.trim());
 
     next();
   }
 
   // Middleware for validating student updates (admin)
   static validateStudentUpdate(req, res, next) {
-    const { nombre, apellido, celular, ciudad, curso, estadoPago, cantidadPago } = req.body;
+    const { nombre, apellido, celular, ciudad, cursos, estadoPago, cantidadPago } = req.body;
     const errors = [];
 
     // Additional security validations
@@ -255,13 +262,20 @@ class ValidationMiddleware {
       }
     }
 
-    if (curso !== undefined) {
-      if (!curso || curso.trim() === '') {
-        errors.push('El curso no puede estar vacío');
+    if (cursos !== undefined) {
+      if (!cursos || !Array.isArray(cursos) || cursos.length === 0) {
+        errors.push('Debe seleccionar al menos un curso');
       } else {
         const validCourses = ['Sanación de las familias', 'Angelología'];
-        if (!validCourses.includes(curso.trim())) {
-          errors.push('El curso debe ser "Sanación de las familias" o "Angelología"');
+        const invalidCourses = cursos.filter(curso => !validCourses.includes(curso.trim()));
+        if (invalidCourses.length > 0) {
+          errors.push(`Cursos inválidos: ${invalidCourses.join(', ')}`);
+        }
+        
+        // Check for duplicates
+        const uniqueCourses = [...new Set(cursos.map(curso => curso.trim()))];
+        if (uniqueCourses.length !== cursos.length) {
+          errors.push('No se pueden seleccionar cursos duplicados');
         }
       }
     }
@@ -298,7 +312,7 @@ class ValidationMiddleware {
     if (apellido !== undefined) req.body.apellido = apellido.trim().replace(/\s+/g, ' ');
     if (celular !== undefined) req.body.celular = celular.replace(/\D/g, '');
     if (ciudad !== undefined) req.body.ciudad = ciudad.trim().replace(/\s+/g, ' ');
-    if (curso !== undefined) req.body.curso = curso.trim();
+    if (cursos !== undefined) req.body.cursos = cursos.map(curso => curso.trim());
 
     next();
   }

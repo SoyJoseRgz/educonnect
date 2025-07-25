@@ -43,7 +43,7 @@ interface FormData {
   apellido: string;
   celular: string;
   ciudad: string;
-  curso: string;
+  cursos: string[];
 }
 
 interface FormErrors {
@@ -51,7 +51,7 @@ interface FormErrors {
   apellido?: string;
   celular?: string;
   ciudad?: string;
-  curso?: string;
+  cursos?: string;
 }
 
 const COURSES = [
@@ -69,16 +69,49 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
     apellido: '',
     celular: '',
     ciudad: '',
-    curso: '',
+    cursos: [],
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
+  const [checkingPhone, setCheckingPhone] = useState(false);
   const { showSuccess, showError } = useNotification();
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
+  const checkPhoneExists = async (celular: string): Promise<boolean> => {
+    if (!celular || celular.length !== 10) {
+      return false;
+    }
+
+    try {
+      setCheckingPhone(true);
+      const result = await studentApi.checkPhoneExists(celular);
+
+      if (result.exists && result.data) {
+        const cursosText = result.data!.cursos.length > 1 
+          ? `los cursos: ${result.data!.cursos.join(', ')}`
+          : `el curso de ${result.data!.cursos[0]}`;
+        setErrors(prev => ({
+          ...prev,
+          celular: `Este número ya está registrado por ${result.data!.nombre} ${result.data!.apellido} en ${cursosText}`
+        }));
+        return true;
+      }
+
+      // Clear error if phone is available
+      setErrors(prev => ({ ...prev, celular: undefined }));
+      return false;
+    } catch (error) {
+      console.error('Error checking phone:', error);
+      // Don't show error to user for this check, just allow them to continue
+      return false;
+    } finally {
+      setCheckingPhone(false);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -107,10 +140,15 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
       newErrors.ciudad = ciudadValidation.message;
     }
 
-    // Validate curso using utility
-    const cursoValidation = ValidationUtils.validateCourse(formData.curso);
-    if (!cursoValidation.isValid) {
-      newErrors.curso = cursoValidation.message;
+    // Validate cursos
+    if (!formData.cursos || formData.cursos.length === 0) {
+      newErrors.cursos = 'Debe seleccionar al menos un curso';
+    } else {
+      const validCourses = ['Sanación de las familias', 'Angelología'];
+      const invalidCourses = formData.cursos.filter(curso => !validCourses.includes(curso));
+      if (invalidCourses.length > 0) {
+        newErrors.cursos = `Cursos inválidos: ${invalidCourses.join(', ')}`;
+      }
     }
 
     setErrors(newErrors);
@@ -148,6 +186,14 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
           break;
         case 'celular':
           validation = ValidationUtils.validatePhoneNumber(value);
+          // Check for duplicate phone number if format is valid
+          if (validation.isValid && value.length === 10) {
+            // Debounce the phone check to avoid too many API calls
+            const timeoutId = setTimeout(() => {
+              checkPhoneExists(value);
+            }, 500);
+            return () => clearTimeout(timeoutId);
+          }
           break;
         case 'ciudad':
           validation = ValidationUtils.validateCity(value);
@@ -165,11 +211,13 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
 
   const handleCourseChange = (event: any) => {
     const value = event.target.value;
-    setFormData(prev => ({ ...prev, curso: value }));
+    // Handle multiple selection
+    const selectedCourses = typeof value === 'string' ? value.split(',') : value;
+    setFormData(prev => ({ ...prev, cursos: selectedCourses }));
 
-    // Clear error for curso field
-    if (errors.curso) {
-      setErrors(prev => ({ ...prev, curso: undefined }));
+    // Clear error for cursos field
+    if (errors.cursos) {
+      setErrors(prev => ({ ...prev, cursos: undefined }));
     }
   };
 
@@ -180,6 +228,12 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
       return;
     }
 
+    // Check for duplicate phone number before submitting
+    const phoneExists = await checkPhoneExists(formData.celular);
+    if (phoneExists) {
+      return; // Error is already set by checkPhoneExists
+    }
+
     setLoading(true);
 
     try {
@@ -188,14 +242,17 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
         apellido: formData.apellido.trim(),
         celular: formData.celular.trim(),
         ciudad: formData.ciudad.trim(),
-        curso: formData.curso,
+        cursos: formData.cursos,
       };
 
       await studentApi.registerStudent(studentData);
 
       // Show success notification
+      const cursosText = formData.cursos.length > 1 
+        ? `los cursos: ${formData.cursos.join(', ')}`
+        : `el curso de ${formData.cursos[0]}`;
       showSuccess(
-        `¡Registro exitoso! Bienvenido ${formData.nombre} ${formData.apellido} al curso de ${formData.curso}.`,
+        `¡Registro exitoso! Bienvenido ${formData.nombre} ${formData.apellido} a ${cursosText}.`,
         'Estudiante Registrado'
       );
 
@@ -227,16 +284,17 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
   };
 
   const handleClose = () => {
-    if (!loading) {
+    if (!loading && !checkingPhone) {
       // Reset form data
       setFormData({
         nombre: '',
         apellido: '',
         celular: '',
         ciudad: '',
-        curso: '',
+        cursos: [],
       });
       setErrors({});
+      setCheckingPhone(false);
       onClose();
     }
   };
@@ -408,10 +466,14 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
               value={formData.celular}
               onChange={handleInputChange('celular')}
               error={!!errors.celular}
-              helperText={errors.celular || (isMobile ? '10 dígitos' : 'Ingrese exactamente 10 dígitos')}
+              helperText={
+                checkingPhone
+                  ? 'Verificando disponibilidad...'
+                  : errors.celular || (isMobile ? '10 dígitos' : 'Ingrese exactamente 10 dígitos')
+              }
               required
               fullWidth
-              disabled={loading}
+              disabled={loading || checkingPhone}
               variant="outlined"
               size={isMobile ? "small" : "medium"}
               placeholder="1234567890"
@@ -429,6 +491,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 '& .MuiFormHelperText-root': {
                   fontSize: isMobile ? '0.75rem' : '0.875rem',
                   marginTop: isMobile ? '4px' : '8px',
+                  color: checkingPhone ? '#1976d2' : undefined,
                 },
               }}
               slotProps={{
@@ -473,11 +536,11 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
               }}
             />
 
-            {/* Curso */}
+            {/* Cursos */}
             <FormControl
               fullWidth
               required
-              error={!!errors.curso}
+              error={!!errors.cursos}
               disabled={loading}
               variant="outlined"
               size={isMobile ? "small" : "medium"}
@@ -498,11 +561,32 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 },
               }}
             >
-              <InputLabel>Curso</InputLabel>
+              <InputLabel>Cursos</InputLabel>
               <Select
-                value={formData.curso}
+                multiple
+                value={formData.cursos}
                 onChange={handleCourseChange}
-                label="Curso"
+                label="Cursos"
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => (
+                      <Box
+                        key={value}
+                        sx={{
+                          backgroundColor: '#e3f2fd',
+                          borderRadius: '16px',
+                          px: 1,
+                          py: 0.25,
+                          fontSize: isMobile ? '0.75rem' : '0.875rem',
+                          color: '#1976d2',
+                          border: '1px solid #bbdefb'
+                        }}
+                      >
+                        {value}
+                      </Box>
+                    ))}
+                  </Box>
+                )}
               >
                 {COURSES.map((course) => (
                   <MenuItem
@@ -513,11 +597,37 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                       py: isMobile ? 1 : 1.5,
                     }}
                   >
-                    {course}
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <Box
+                        sx={{
+                          width: 16,
+                          height: 16,
+                          border: '2px solid #1976d2',
+                          borderRadius: '3px',
+                          mr: 1,
+                          backgroundColor: formData.cursos.includes(course) ? '#1976d2' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {formData.cursos.includes(course) && (
+                          <Box
+                            sx={{
+                              width: 8,
+                              height: 8,
+                              backgroundColor: 'white',
+                              borderRadius: '1px'
+                            }}
+                          />
+                        )}
+                      </Box>
+                      {course}
+                    </Box>
                   </MenuItem>
                 ))}
               </Select>
-              {errors.curso && (
+              {errors.cursos && (
                 <Typography
                   variant="caption"
                   color="error"
@@ -527,7 +637,20 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     fontSize: isMobile ? '0.75rem' : '0.875rem'
                   }}
                 >
-                  {errors.curso}
+                  {errors.cursos}
+                </Typography>
+              )}
+              {!errors.cursos && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    mt: isMobile ? 0.25 : 0.5,
+                    ml: 1.5,
+                    fontSize: isMobile ? '0.75rem' : '0.875rem',
+                    color: '#666666'
+                  }}
+                >
+                  Puedes seleccionar múltiples cursos
                 </Typography>
               )}
             </FormControl>
@@ -547,7 +670,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
           <Button
             type="submit"
             variant="contained"
-            disabled={loading}
+            disabled={loading || checkingPhone}
             startIcon={loading ? <CircularProgress size={isMobile ? 16 : 20} color="inherit" /> : <PersonAddIcon />}
             size={isMobile ? "medium" : "large"}
             sx={{
@@ -570,11 +693,11 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
               },
             }}
           >
-            {loading ? 'Registrando...' : 'Registrarse'}
+            {loading ? 'Registrando...' : checkingPhone ? 'Verificando...' : 'Registrarse'}
           </Button>
           <Button
             onClick={handleClose}
-            disabled={loading}
+            disabled={loading || checkingPhone}
             variant="outlined"
             size={isMobile ? "medium" : "large"}
             sx={{

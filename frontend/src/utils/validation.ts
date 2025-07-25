@@ -11,26 +11,26 @@ export class ValidationUtils {
     if (!value || value.trim() === '') {
       return { isValid: false, message: `${fieldName} es requerido` };
     }
-    
+
     const trimmedValue = value.trim();
-    
+
     if (trimmedValue.length < 2) {
       return { isValid: false, message: `${fieldName} debe tener al menos 2 caracteres` };
     }
-    
+
     if (trimmedValue.length > 50) {
       return { isValid: false, message: `${fieldName} no puede exceder 50 caracteres` };
     }
-    
+
     if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(trimmedValue)) {
       return { isValid: false, message: `${fieldName} solo puede contener letras y espacios` };
     }
-    
+
     // Check for excessive whitespace
     if (/\s{2,}/.test(trimmedValue)) {
       return { isValid: false, message: `${fieldName} no puede contener espacios múltiples consecutivos` };
     }
-    
+
     // Check for suspicious patterns (basic XSS protection)
     const suspiciousPatterns = [
       /<script/i,
@@ -39,11 +39,11 @@ export class ValidationUtils {
       /<iframe/i,
       /eval\(/i
     ];
-    
+
     if (suspiciousPatterns.some(pattern => pattern.test(value))) {
       return { isValid: false, message: `${fieldName} contiene caracteres no permitidos` };
     }
-    
+
     return { isValid: true };
   }
 
@@ -67,40 +67,63 @@ export class ValidationUtils {
     if (!value || value.trim() === '') {
       return { isValid: false, message: 'La ciudad es requerida' };
     }
-    
+
     const trimmedValue = value.trim();
-    
+
     if (trimmedValue.length < 2) {
       return { isValid: false, message: 'La ciudad debe tener al menos 2 caracteres' };
     }
-    
+
     if (trimmedValue.length > 50) {
       return { isValid: false, message: 'La ciudad no puede exceder 50 caracteres' };
     }
-    
+
     if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(trimmedValue)) {
       return { isValid: false, message: 'La ciudad solo puede contener letras y espacios' };
     }
-    
+
     // Check for excessive whitespace
     if (/\s{2,}/.test(trimmedValue)) {
       return { isValid: false, message: 'La ciudad no puede contener espacios múltiples consecutivos' };
     }
-    
+
     return { isValid: true };
   }
 
-  // Course validation
+  // Course validation (single course - for backward compatibility)
   static validateCourse(value: string): ValidationResult {
     if (!value || value.trim() === '') {
       return { isValid: false, message: 'Debe seleccionar un curso' };
     }
-    
+
     const validCourses = ['Sanación de las familias', 'Angelología'];
     if (!validCourses.includes(value.trim())) {
       return { isValid: false, message: 'Curso no válido' };
     }
-    
+
+    return { isValid: true };
+  }
+
+  // Multiple courses validation
+  static validateCourses(values: string[]): ValidationResult {
+    if (!values || !Array.isArray(values) || values.length === 0) {
+      return { isValid: false, message: 'Debe seleccionar al menos un curso' };
+    }
+
+    const validCourses = ['Sanación de las familias', 'Angelología'];
+    const trimmedValues = values.map(curso => curso.trim());
+    const invalidCourses = trimmedValues.filter(curso => !validCourses.includes(curso));
+
+    if (invalidCourses.length > 0) {
+      return { isValid: false, message: `Cursos inválidos: ${invalidCourses.join(', ')}` };
+    }
+
+    // Check for duplicates
+    const uniqueCourses = Array.from(new Set(trimmedValues));
+    if (uniqueCourses.length !== trimmedValues.length) {
+      return { isValid: false, message: 'No se pueden seleccionar cursos duplicados' };
+    }
+
     return { isValid: true };
   }
 
@@ -109,12 +132,12 @@ export class ValidationUtils {
     if (!value || value.trim() === '') {
       return { isValid: false, message: 'El correo electrónico es requerido' };
     }
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(value.trim())) {
       return { isValid: false, message: 'Ingresa un correo electrónico válido' };
     }
-    
+
     return { isValid: true };
   }
 
@@ -123,7 +146,7 @@ export class ValidationUtils {
     if (!value || value.trim() === '') {
       return { isValid: false, message: 'La contraseña es requerida' };
     }
-    
+
     return { isValid: true };
   }
 
@@ -132,12 +155,12 @@ export class ValidationUtils {
     if (!value || value.trim() === '') {
       return { isValid: false, message: 'Debe seleccionar un estado de pago' };
     }
-    
+
     const validStatuses = ['pendiente', 'parcial', 'completo'];
     if (!validStatuses.includes(value)) {
       return { isValid: false, message: 'Estado de pago no válido' };
     }
-    
+
     return { isValid: true };
   }
 
@@ -146,20 +169,20 @@ export class ValidationUtils {
     if (!value || value.trim() === '') {
       return { isValid: false, message: 'La cantidad es requerida' };
     }
-    
+
     const amount = parseFloat(value);
     if (isNaN(amount)) {
       return { isValid: false, message: 'La cantidad debe ser un número válido' };
     }
-    
+
     if (amount < 0) {
       return { isValid: false, message: 'La cantidad no puede ser negativa' };
     }
-    
+
     if (amount > 10000000) {
       return { isValid: false, message: 'La cantidad no puede exceder $10,000,000' };
     }
-    
+
     return { isValid: true };
   }
 
@@ -238,6 +261,7 @@ export const {
   validatePhoneNumber,
   validateCity,
   validateCourse,
+  validateCourses,
   validateEmail,
   validatePassword,
   validatePaymentStatus,
